@@ -9,6 +9,8 @@ import { BirthDetail } from './BirthDetail.js';
 import { QuestionPack } from './QuestionPack.js';
 import { ReportPack } from './ReportPack.js';
 import { Blog } from './Blog.js';
+import { Faq } from './Faq.js';
+import { LegalPage } from './LegalPage.js';
 
 // User <-> Order
 User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
@@ -49,5 +51,7 @@ export {
   BirthDetail,
   QuestionPack,
   ReportPack,
-  Blog
+  Blog,
+  Faq,
+  LegalPage
 };
