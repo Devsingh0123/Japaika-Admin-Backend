@@ -6,7 +6,7 @@ import {
   refundOrder,
   exportOrders
 } from '../controllers/orderController.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -14,18 +14,18 @@ const router = express.Router();
 router.use(adminAuth);
 
 // GET /api/v1/admin/orders
-router.get('/', getOrders);
+router.get('/', requirePermission('orders:read'), getOrders);
 
 // GET /api/v1/admin/orders/export (Must be before /:id)
-router.get('/export', exportOrders);
+router.get('/export', requirePermission('orders:read'), exportOrders);
 
 // GET /api/v1/admin/orders/:id
-router.get('/:id', getOrderById);
+router.get('/:id', requirePermission('orders:read'), getOrderById);
 
 // GET /api/v1/admin/orders/:id/invoice
-router.get('/:id/invoice', getOrderInvoice);
+router.get('/:id/invoice', requirePermission('orders:read'), getOrderInvoice);
 
 // POST /api/v1/admin/orders/:id/refund
-router.post('/:id/refund', refundOrder);
+router.post('/:id/refund', requirePermission('orders:write'), refundOrder);
 
 export default router;

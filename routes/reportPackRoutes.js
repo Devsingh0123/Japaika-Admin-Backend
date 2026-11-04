@@ -5,7 +5,7 @@ import {
   updateReportPack,
   deleteReportPack
 } from '../controllers/reportPackController.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -13,15 +13,15 @@ const router = express.Router();
 router.use(adminAuth);
 
 // GET /api/v1/admin/report-packs - List all report packs
-router.get('/', getReportPacks);
+router.get('/', requirePermission('report_packs:read'), getReportPacks);
 
 // POST /api/v1/admin/report-packs - Create a new report pack
-router.post('/', createReportPack);
+router.post('/', requirePermission('report_packs:write'), createReportPack);
 
 // PATCH /api/v1/admin/report-packs/:id - Update an existing report pack
-router.patch('/:id', updateReportPack);
+router.patch('/:id', requirePermission('report_packs:write'), updateReportPack);
 
 // DELETE /api/v1/admin/report-packs/:id - Soft delete a report pack
-router.delete('/:id', deleteReportPack);
+router.delete('/:id', requirePermission('report_packs:write'), deleteReportPack);
 
 export default router;

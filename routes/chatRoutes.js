@@ -4,12 +4,12 @@ import {
   getChatStats,
   getChatThreadById
 } from '../controllers/chatController.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Apply adminAuth to all chat monitoring routes
-router.use(adminAuth);
+// Apply adminAuth and chats:read permission to all chat monitoring routes
+router.use(adminAuth, requirePermission('chats:read'));
 
 // GET /api/v1/admin/chats - Paginated thread logs with filters
 router.get('/', getChatThreads);

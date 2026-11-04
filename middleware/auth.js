@@ -71,6 +71,58 @@ export const superAdminOnly = (req, res, next) => {
 };
 
 /**
+ * Complete list of granular permissions supported for 'admin' accounts.
+ * 'super_admin' automatically bypasses all permission checks.
+ */
+export const ALL_PERMISSIONS = [
+  'dashboard:read',
+  'users:read',
+  'users:write',
+  'orders:read',
+  'orders:write',
+  'coupons:read',
+  'coupons:write',
+  'question_packs:read',
+  'question_packs:write',
+  'report_packs:read',
+  'report_packs:write',
+  'blogs:read',
+  'blogs:write',
+  'chats:read',
+  'faqs:read',
+  'faqs:write',
+  'legal_pages:read',
+  'legal_pages:write',
+  'admins:read'
+];
+
+/**
+ * Middleware: requirePermission(...requiredPermissions)
+ * - 'super_admin' always passes.
+ * - 'admin' passes if their permissions array includes any of requiredPermissions
+ *   (or the corresponding ':write' permission when ':read' is checked).
+ */
+export const requirePermission = (...requiredPermissions) => (req, res, next) => {
+  if (req.user.role === 'super_admin') return next();
+
+  const userPermissions = req.user.permissions;
+  const hasAccess = requiredPermissions.some(
+    (perm) =>
+      userPermissions.includes(perm) ||
+      (perm.endsWith(':read') && userPermissions.includes(perm.replace(':read', ':write')))
+  );
+
+  if (!hasAccess) {
+    return res.status(403).json({
+      success: false,
+      message: `Access denied. Required permission: ${requiredPermissions.join(' or ')}`
+    });
+  }
+
+  next();
+};
+
+/**
  * Middleware: adminAuth
  * Combined middleware pipeline: verifies token, ensures admin is active & has admin role.
  */

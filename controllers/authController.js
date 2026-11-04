@@ -1,6 +1,7 @@
 import { Admin } from '../models/index.js';
 import { hashPassword, comparePassword } from '../utils/bcrypt.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
+import { ALL_PERMISSIONS } from '../middleware/auth.js';
 import { AppError } from '../utils/appError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sequelize } from '../config/db.js';
@@ -57,6 +58,7 @@ export const login = asyncHandler(async (req, res, next) => {
         email: admin.email,
         name: admin.name,
         role: admin.role,
+        permissions: admin.role === 'super_admin' ? ALL_PERMISSIONS : admin.permissions,
         avatar_url: admin.avatar_url
       },
       accessToken,
@@ -124,6 +126,7 @@ export const getMe = asyncHandler(async (req, res) => {
         email: req.user.email,
         name: req.user.name,
         role: req.user.role,
+        permissions: req.user.role === 'super_admin' ? ALL_PERMISSIONS : req.user.permissions,
         avatar_url: req.user.avatar_url,
         created_at: req.user.created_at
       }
@@ -166,6 +169,7 @@ export const updateProfile = asyncHandler(async (req, res, next) => {
         email: admin.email,
         name: admin.name,
         role: admin.role,
+        permissions: admin.role === 'super_admin' ? ALL_PERMISSIONS : admin.permissions,
         avatar_url: admin.avatar_url,
         updated_at: admin.updated_at
       }

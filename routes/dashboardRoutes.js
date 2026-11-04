@@ -1,6 +1,6 @@
 import express from 'express';
 import { getDashboardStats } from '../controllers/dashboardController.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -8,6 +8,6 @@ const router = express.Router();
 router.use(adminAuth);
 
 // GET /api/v1/admin/dashboard
-router.get('/', getDashboardStats);
+router.get('/', requirePermission('dashboard:read'), getDashboardStats);
 
 export default router;

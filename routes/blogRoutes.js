@@ -7,7 +7,7 @@ import {
   updateBlogStatus,
   deleteBlog
 } from '../controllers/blogController.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -15,24 +15,24 @@ const router = express.Router();
 router.use(adminAuth);
 
 // GET /api/v1/admin/blogs
-router.get('/', getBlogs);
+router.get('/', requirePermission('blogs:read'), getBlogs);
 
 // GET /api/v1/admin/blogs/:id
-router.get('/:id', getBlogById);
+router.get('/:id', requirePermission('blogs:read'), getBlogById);
 
 // POST /api/v1/admin/blogs
-router.post('/', createBlog);
+router.post('/', requirePermission('blogs:write'), createBlog);
 
 // PUT /api/v1/admin/blogs/:id
-router.put('/:id', updateBlog);
+router.put('/:id', requirePermission('blogs:write'), updateBlog);
 
 // PATCH /api/v1/admin/blogs/:id
-router.patch('/:id', updateBlog);
+router.patch('/:id', requirePermission('blogs:write'), updateBlog);
 
 // PATCH /api/v1/admin/blogs/:id/status
-router.patch('/:id/status', updateBlogStatus);
+router.patch('/:id/status', requirePermission('blogs:write'), updateBlogStatus);
 
 // DELETE /api/v1/admin/blogs/:id
-router.delete('/:id', deleteBlog);
+router.delete('/:id', requirePermission('blogs:write'), deleteBlog);
 
 export default router;

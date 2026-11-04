@@ -5,12 +5,12 @@ import {
   deleteFile
 } from '../controllers/uploadController.js';
 import { uploadSingle, uploadMultiple } from '../middleware/upload.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Enforce admin authentication on all upload endpoints
-router.use(adminAuth);
+// Enforce admin authentication and blogs:write permission on all upload endpoints
+router.use(adminAuth, requirePermission('blogs:write'));
 
 // POST /api/v1/admin/uploads - Single file upload ('file')
 router.post('/', uploadSingle('file'), uploadFile);

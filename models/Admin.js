@@ -32,6 +32,15 @@ export const Admin = sequelize.define(
       allowNull: false,
       defaultValue: "admin",
     },
+    permissions: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+      get() {
+        const val = this.getDataValue("permissions");
+        return typeof val === "string" ? JSON.parse(val) : (val || []);
+      },
+    },
     avatar_url: {
       type: DataTypes.STRING(500),
       allowNull: true,

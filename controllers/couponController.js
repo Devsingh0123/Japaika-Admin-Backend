@@ -71,8 +71,11 @@ export const createCoupon = asyncHandler(async (req, res, next) => {
 
   const normalizedCode = code.trim().toUpperCase();
 
-  // Check code uniqueness
-  const existingCoupon = await Coupon.findOne({ where: { code: normalizedCode } });
+  // Check code uniqueness (including soft-deleted records due to unique DB index)
+  const existingCoupon = await Coupon.findOne({
+    where: { code: normalizedCode },
+    paranoid: false
+  });
   if (existingCoupon) {
     return next(new AppError(`Coupon code "${normalizedCode}" already exists.`, 400));
   }
@@ -155,6 +158,158 @@ export const updateCouponStatus = asyncHandler(async (req, res, next) => {
       id: coupon.id,
       code: coupon.code,
       is_active: coupon.is_active
+    }
+  });
+});
+
+/**
+ * PATCH / PUT /api/v1/admin/coupons/:id
+ * Updates an existing coupon's details (code, description, discount, limits, expiry, status).
+ */
+export const updateCoupon = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const {
+    code,
+    description,
+    discount_type,
+    discount_value,
+    applicable_products,
+    expires_at,
+    max_uses,
+    is_active
+  } = req.body;
+
+  const coupon = await Coupon.findByPk(id);
+
+  if (!coupon) {
+    return next(new AppError('Coupon not found with the provided ID.', 404));
+  }
+
+  const updates = {};
+
+  if (code !== undefined) {
+    if (typeof code !== 'string' || !code.trim()) {
+      return next(new AppError('Coupon code cannot be empty.', 400));
+    }
+    const normalizedCode = code.trim().toUpperCase();
+    if (normalizedCode !== coupon.code) {
+      const existingCoupon = await Coupon.findOne({
+        where: { code: normalizedCode },
+        paranoid: false
+      });
+      if (existingCoupon) {
+        return next(new AppError(`Coupon code "${normalizedCode}" already exists.`, 400));
+      }
+      updates.code = normalizedCode;
+    }
+  }
+
+  if (description !== undefined) {
+    if (typeof description !== 'string' || !description.trim()) {
+      return next(new AppError('Description cannot be empty.', 400));
+    }
+    updates.description = description.trim();
+  }
+
+  const validTypes = ['pack_offer', 'percentage', 'flat'];
+  const effectiveType = discount_type !== undefined ? discount_type : coupon.discount_type;
+
+  if (discount_type !== undefined) {
+    if (!validTypes.includes(discount_type)) {
+      return next(
+        new AppError(`discount_type must be one of: ${validTypes.join(', ')}`, 400)
+      );
+    }
+    updates.discount_type = discount_type;
+  }
+
+  if (discount_value !== undefined) {
+    const parsedValue = parseFloat(discount_value);
+    if (isNaN(parsedValue) || parsedValue < 0) {
+      return next(new AppError('discount_value must be a non-negative number.', 400));
+    }
+    if (effectiveType === 'percentage' && parsedValue > 100) {
+      return next(new AppError('Percentage discount cannot exceed 100%.', 400));
+    }
+    updates.discount_value = parsedValue;
+  } else if (
+    discount_type === 'percentage' &&
+    parseFloat(coupon.discount_value) > 100
+  ) {
+    return next(new AppError('Percentage discount cannot exceed 100%.', 400));
+  }
+
+  if (applicable_products !== undefined) {
+    if (!Array.isArray(applicable_products)) {
+      return next(new AppError('applicable_products must be an array.', 400));
+    }
+    updates.applicable_products = applicable_products;
+  }
+
+  if (max_uses !== undefined) {
+    if (max_uses === null || max_uses === '') {
+      updates.max_uses = null;
+    } else {
+      const parsedMaxUses = parseInt(max_uses, 10);
+      if (isNaN(parsedMaxUses) || parsedMaxUses <= 0) {
+        return next(new AppError('max_uses must be a positive integer.', 400));
+      }
+      updates.max_uses = parsedMaxUses;
+    }
+  }
+
+  if (expires_at !== undefined) {
+    if (expires_at === null || expires_at === '') {
+      updates.expires_at = null;
+    } else {
+      const expiryDate = new Date(expires_at);
+      if (isNaN(expiryDate.getTime())) {
+        return next(new AppError('Invalid date format for expires_at.', 400));
+      }
+      updates.expires_at = expiryDate;
+    }
+  }
+
+  if (is_active !== undefined) {
+    if (typeof is_active !== 'boolean') {
+      return next(new AppError('is_active must be a boolean value.', 400));
+    }
+    updates.is_active = is_active;
+  }
+
+  await coupon.update(updates);
+
+  res.status(200).json({
+    success: true,
+    message: 'Coupon updated successfully',
+    data: {
+      coupon
+    }
+  });
+});
+
+/**
+ * DELETE /api/v1/admin/coupons/:id
+ * Soft-deletes a coupon code using paranoid deleted_at.
+ */
+export const deleteCoupon = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  const coupon = await Coupon.findByPk(id);
+
+  if (!coupon) {
+    return next(new AppError('Coupon not found with the provided ID.', 404));
+  }
+
+  await coupon.destroy();
+
+  res.status(200).json({
+    success: true,
+    message: `Coupon "${coupon.code}" deleted successfully`,
+    data: {
+      id: coupon.id,
+      code: coupon.code,
+      deleted_at: coupon.deleted_at
     }
   });
 });

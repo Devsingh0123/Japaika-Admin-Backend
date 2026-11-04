@@ -1,8 +1,23 @@
 import { Op } from 'sequelize';
 import { Admin } from '../models/index.js';
 import { hashPassword } from '../utils/bcrypt.js';
+import { ALL_PERMISSIONS } from '../middleware/auth.js';
 import { AppError } from '../utils/appError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+
+/**
+ * GET /api/v1/admin/admins/permissions
+ * Returns the list of all supported granular permissions for the Admin UI.
+ */
+export const getAvailablePermissions = asyncHandler(async (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Available permissions retrieved successfully',
+    data: {
+      permissions: ALL_PERMISSIONS
+    }
+  });
+});
 
 /**
  * GET /api/v1/admin/admins
@@ -37,7 +52,7 @@ export const listAdmins = asyncHandler(async (req, res) => {
 
   const { count, rows: admins } = await Admin.findAndCountAll({
     where: whereClause,
-    attributes: ['id', 'email', 'name', 'role', 'avatar_url', 'is_blocked', 'created_at', 'updated_at'],
+    attributes: ['id', 'email', 'name', 'role', 'permissions', 'avatar_url', 'is_blocked', 'created_at', 'updated_at'],
     order: [['created_at', 'DESC']],
     limit,
     offset
@@ -65,7 +80,7 @@ export const listAdmins = asyncHandler(async (req, res) => {
  * Creates a new administrative account (Super Admin only).
  */
 export const createAdminUser = asyncHandler(async (req, res, next) => {
-  const { email, password, name = 'Administrator', role = 'admin' } = req.body;
+  const { email, password, name = 'Administrator', role = 'admin', permissions = [] } = req.body;
 
   if (!email || !password) {
     return next(new AppError('Email and initial password are required.', 400));
@@ -87,12 +102,16 @@ export const createAdminUser = asyncHandler(async (req, res, next) => {
   }
 
   const hashedPassword = await hashPassword(password);
+  const validPermissions = Array.isArray(permissions)
+    ? [...new Set(permissions.filter((p) => ALL_PERMISSIONS.includes(p)))]
+    : [];
 
   const newAdmin = await Admin.create({
     email: normalizedEmail,
     password: hashedPassword,
     name: name.trim() || 'Administrator',
     role,
+    permissions: role === 'super_admin' ? ALL_PERMISSIONS : validPermissions,
     is_blocked: false
   });
 
@@ -105,6 +124,7 @@ export const createAdminUser = asyncHandler(async (req, res, next) => {
         email: newAdmin.email,
         name: newAdmin.name,
         role: newAdmin.role,
+        permissions: newAdmin.permissions,
         avatar_url: newAdmin.avatar_url,
         is_blocked: newAdmin.is_blocked,
         created_at: newAdmin.created_at
@@ -149,6 +169,52 @@ export const updateAdminRole = asyncHandler(async (req, res, next) => {
         email: targetAdmin.email,
         name: targetAdmin.name,
         role: targetAdmin.role,
+        permissions: targetAdmin.permissions,
+        updated_at: targetAdmin.updated_at
+      }
+    }
+  });
+});
+
+/**
+ * PATCH /api/v1/admin/admins/:id/permissions
+ * Updates the granular permissions array for an administrator (Super Admin only).
+ */
+export const updateAdminPermissions = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { permissions } = req.body;
+
+  if (!Array.isArray(permissions)) {
+    return next(new AppError('permissions must be an array of permission strings.', 400));
+  }
+
+  const targetAdmin = await Admin.findByPk(id);
+  if (!targetAdmin) {
+    return next(new AppError('Administrator account not found.', 404));
+  }
+
+  const invalidPerms = permissions.filter((p) => !ALL_PERMISSIONS.includes(p));
+  if (invalidPerms.length > 0) {
+    return next(
+      new AppError(
+        `Invalid permissions: ${invalidPerms.join(', ')}. Allowed values: ${ALL_PERMISSIONS.join(', ')}`,
+        400
+      )
+    );
+  }
+
+  await targetAdmin.update({ permissions: [...new Set(permissions)] });
+
+  res.status(200).json({
+    success: true,
+    message: 'Administrator permissions updated successfully',
+    data: {
+      admin: {
+        id: targetAdmin.id,
+        email: targetAdmin.email,
+        name: targetAdmin.name,
+        role: targetAdmin.role,
+        permissions: targetAdmin.permissions,
         updated_at: targetAdmin.updated_at
       }
     }

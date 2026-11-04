@@ -6,7 +6,7 @@ import {
   adjustUserCredits,
   exportUsers
 } from '../controllers/userController.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, requirePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -14,18 +14,18 @@ const router = express.Router();
 router.use(adminAuth);
 
 // GET /api/v1/admin/users
-router.get('/', getUsers);
+router.get('/', requirePermission('users:read'), getUsers);
 
 // GET /api/v1/admin/users/export (Must be before /:id)
-router.get('/export', exportUsers);
+router.get('/export', requirePermission('users:read'), exportUsers);
 
 // GET /api/v1/admin/users/:id
-router.get('/:id', getUserById);
+router.get('/:id', requirePermission('users:read'), getUserById);
 
 // PATCH /api/v1/admin/users/:id/status
-router.patch('/:id/status', updateUserStatus);
+router.patch('/:id/status', requirePermission('users:write'), updateUserStatus);
 
 // PATCH /api/v1/admin/users/:id/credits
-router.patch('/:id/credits', adjustUserCredits);
+router.patch('/:id/credits', requirePermission('users:write'), adjustUserCredits);
 
 export default router;
