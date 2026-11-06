@@ -16,6 +16,7 @@ import chatRoutes from './routes/chatRoutes.js';
 import adminManageRoutes from './routes/adminManageRoutes.js';
 import faqRoutes from './routes/faqRoutes.js';
 import legalPageRoutes from './routes/legalPageRoutes.js';
+import doshaRoutes from './routes/doshaRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use('/api/v1/admin/chats', chatRoutes);
 app.use('/api/v1/admin/admins', adminManageRoutes);
 app.use('/api/v1/admin/faqs', faqRoutes);
 app.use('/api/v1/admin/legal-pages', legalPageRoutes);
+app.use('/api/v1/admin/doshas', doshaRoutes);
 
 // Unhandled Route Handler
 app.all('*', (req, res) => {

@@ -11,6 +11,7 @@ import { ReportPack } from './ReportPack.js';
 import { Blog } from './Blog.js';
 import { Faq } from './Faq.js';
 import { LegalPage } from './LegalPage.js';
+import { Dosha } from './Dosha.js';
 
 // User <-> Order
 User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
@@ -57,5 +58,6 @@ export {
   ReportPack,
   Blog,
   Faq,
-  LegalPage
+  LegalPage,
+  Dosha
 };

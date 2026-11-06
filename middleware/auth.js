@@ -91,6 +91,8 @@ export const ALL_PERMISSIONS = [
   'chats:read',
   'faqs:read',
   'faqs:write',
+  'doshas:read',
+  'doshas:write',
   'legal_pages:read',
   'legal_pages:write',
   'admins:read'
