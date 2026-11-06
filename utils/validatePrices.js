@@ -3,9 +3,71 @@ import { AppError } from './appError.js';
 export const ALLOWED_CURRENCIES = ['INR', 'USD'];
 
 /**
- * Validates and sanitizes a multi-currency pricing payload.
+ * Validates and sanitizes multi-currency pricing for Question Packs.
  * Strictly permits ONLY 'INR' and 'USD'.
- * Rejects unsupported currencies or invalid price numbers.
+ * Requires only basePrice (> 0). Completely eliminates offerPrice.
+ *
+ * @param {Object} prices - Object mapping currency codes to { basePrice } or numeric value
+ * @param {Object} [options]
+ * @param {boolean} [options.requireBoth=false] - Whether both INR and USD are required
+ * @returns {Object} Sanitized prices object: { INR: { basePrice: number }, USD: { basePrice: number } }
+ */
+export function validateQuestionPackPrices(prices, { requireBoth = false } = {}) {
+  if (!prices || typeof prices !== 'object' || Array.isArray(prices) || Object.keys(prices).length === 0) {
+    throw new AppError(
+      'prices must be a non-empty JSON object containing currency pricing (e.g., {"INR": {"basePrice": 999}, "USD": {"basePrice": 9.99}}).',
+      400
+    );
+  }
+
+  const keys = Object.keys(prices);
+  const invalidKeys = keys.filter((k) => !ALLOWED_CURRENCIES.includes(k));
+  if (invalidKeys.length > 0) {
+    throw new AppError(
+      `Unsupported currency provided: ${invalidKeys.join(', ')}. Japaika strictly supports only 'INR' and 'USD'.`,
+      400
+    );
+  }
+
+  if (requireBoth) {
+    const missing = ALLOWED_CURRENCIES.filter((c) => !keys.includes(c));
+    if (missing.length > 0) {
+      throw new AppError(
+        `Missing required currency pricing for: ${missing.join(', ')}. Both INR and USD must be provided.`,
+        400
+      );
+    }
+  }
+
+  const sanitized = {};
+  for (const curr of keys) {
+    const entry = prices[curr];
+    let rawBase;
+
+    if (typeof entry === 'number' || typeof entry === 'string') {
+      rawBase = entry;
+    } else if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      rawBase = entry.basePrice !== undefined ? entry.basePrice : entry.originalPrice;
+    } else {
+      throw new AppError(`Pricing details for currency ${curr} must specify basePrice as a number.`, 400);
+    }
+
+    const basePrice = parseFloat(rawBase);
+    if (isNaN(basePrice) || basePrice <= 0) {
+      throw new AppError(`Invalid basePrice for ${curr}. It must be a positive number greater than 0.`, 400);
+    }
+
+    sanitized[curr] = {
+      basePrice: Number(basePrice)
+    };
+  }
+
+  return sanitized;
+}
+
+/**
+ * Validates and sanitizes a multi-currency pricing payload for Report Packs.
+ * Strictly permits ONLY 'INR' and 'USD'.
  *
  * @param {Object} prices - Object mapping currency codes to { offerPrice, originalPrice }
  * @param {Object} [options]

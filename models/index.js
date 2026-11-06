@@ -40,6 +40,10 @@ ChatMessage.belongsTo(ChatThread, { foreignKey: 'thread_id', as: 'thread' });
 Admin.hasMany(Blog, { foreignKey: 'author_id', as: 'blogs' });
 Blog.belongsTo(Admin, { foreignKey: 'author_id', as: 'author' });
 
+// QuestionPack <-> Coupon (Auto-apply / default offer coupon)
+QuestionPack.belongsTo(Coupon, { foreignKey: 'default_coupon_id', as: 'default_coupon' });
+Coupon.hasMany(QuestionPack, { foreignKey: 'default_coupon_id', as: 'question_packs' });
+
 export {
   User,
   Admin,

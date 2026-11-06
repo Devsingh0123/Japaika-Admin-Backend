@@ -54,6 +54,15 @@ export const QuestionPack = sequelize.define('QuestionPack', {
       this.setDataValue('prices', typeof val === 'object' ? val : JSON.parse(val));
     }
   },
+  default_coupon_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    defaultValue: null,
+    references: {
+      model: 'coupons',
+      key: 'id'
+    }
+  },
   is_active: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
@@ -71,6 +80,7 @@ export const QuestionPack = sequelize.define('QuestionPack', {
   underscored: true,
   indexes: [
     { name: 'idx_question_packs_code', unique: true, fields: ['code'] },
-    { name: 'idx_question_packs_is_active', fields: ['is_active'] }
+    { name: 'idx_question_packs_is_active', fields: ['is_active'] },
+    { name: 'idx_question_packs_default_coupon', fields: ['default_coupon_id'] }
   ]
 });

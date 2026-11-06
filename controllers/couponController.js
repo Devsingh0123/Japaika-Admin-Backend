@@ -8,7 +8,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
  * Lists all coupons with usage metrics and filter options.
  */
 export const getCoupons = asyncHandler(async (req, res) => {
-  const { search, is_active } = req.query;
+  const { search, is_active, is_hidden, is_special_offer, special_offer } = req.query;
 
   const whereClause = {};
 
@@ -22,6 +22,15 @@ export const getCoupons = asyncHandler(async (req, res) => {
     whereClause.is_active = is_active === 'true' || is_active === true;
   }
 
+  if (is_hidden !== undefined) {
+    whereClause.is_hidden = is_hidden === 'true' || is_hidden === true;
+  }
+
+  const specialOfferParam = is_special_offer !== undefined ? is_special_offer : special_offer;
+  if (specialOfferParam !== undefined) {
+    whereClause.is_special_offer = specialOfferParam === 'true' || specialOfferParam === true;
+  }
+
   const coupons = await Coupon.findAll({
     where: whereClause,
     attributes: [
@@ -32,6 +41,8 @@ export const getCoupons = asyncHandler(async (req, res) => {
       'discount_value',
       'applicable_products',
       'is_active',
+      'is_hidden',
+      'is_special_offer',
       'expires_at',
       'max_uses',
       'used_count',
@@ -41,11 +52,19 @@ export const getCoupons = asyncHandler(async (req, res) => {
     order: [['created_at', 'DESC']]
   });
 
+  const formattedCoupons = coupons.map((c) => {
+    const raw = typeof c.toJSON === 'function' ? c.toJSON() : c;
+    return {
+      ...raw,
+      share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(raw.code)}`
+    };
+  });
+
   res.status(200).json({
     success: true,
     message: 'Coupons list retrieved',
     data: {
-      coupons
+      coupons: formattedCoupons
     }
   });
 });
@@ -62,7 +81,10 @@ export const createCoupon = asyncHandler(async (req, res, next) => {
     discount_value,
     applicable_products,
     expires_at,
-    max_uses
+    max_uses,
+    is_hidden,
+    is_special_offer,
+    special_offer
   } = req.body;
 
   if (!code || typeof code !== 'string' || !code.trim()) {
@@ -80,7 +102,7 @@ export const createCoupon = asyncHandler(async (req, res, next) => {
     return next(new AppError(`Coupon code "${normalizedCode}" already exists.`, 400));
   }
 
-  const validTypes = ['pack_offer', 'percentage', 'flat'];
+  const validTypes = ['percentage', 'flat'];
   if (!discount_type || !validTypes.includes(discount_type)) {
     return next(
       new AppError(`discount_type must be one of: ${validTypes.join(', ')}`, 400)
@@ -121,14 +143,21 @@ export const createCoupon = asyncHandler(async (req, res, next) => {
     applicable_products: Array.isArray(applicable_products) ? applicable_products : [],
     expires_at: parsedExpiresAt,
     max_uses: parsedMaxUses,
-    is_active: true
+    is_active: true,
+    is_hidden: typeof is_hidden === 'boolean' ? is_hidden : false,
+    is_special_offer: typeof is_special_offer === 'boolean'
+      ? is_special_offer
+      : (typeof special_offer === 'boolean' ? special_offer : false)
   });
 
   res.status(201).json({
     success: true,
     message: 'Coupon created successfully',
     data: {
-      coupon: newCoupon
+      coupon: {
+        ...(typeof newCoupon.toJSON === 'function' ? newCoupon.toJSON() : newCoupon),
+        share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(newCoupon.code)}`
+      }
     }
   });
 });
@@ -157,7 +186,121 @@ export const updateCouponStatus = asyncHandler(async (req, res, next) => {
     data: {
       id: coupon.id,
       code: coupon.code,
-      is_active: coupon.is_active
+      is_active: coupon.is_active,
+      share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(coupon.code)}`
+    }
+  });
+});
+
+/**
+ * PATCH /api/v1/admin/coupons/:id/visibility
+ * Toggles or sets a coupon's hidden/secret visibility.
+ */
+export const updateCouponVisibility = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { is_hidden } = req.body;
+
+  const coupon = await Coupon.findByPk(id);
+
+  if (!coupon) {
+    return next(new AppError('Coupon not found with the provided ID.', 404));
+  }
+
+  const newHidden = typeof is_hidden === 'boolean' ? is_hidden : !coupon.is_hidden;
+
+  await coupon.update({ is_hidden: newHidden });
+
+  res.status(200).json({
+    success: true,
+    message: `Coupon "${coupon.code}" marked as ${newHidden ? 'secret/hidden' : 'public'} successfully`,
+    data: {
+      id: coupon.id,
+      code: coupon.code,
+      is_hidden: coupon.is_hidden,
+      share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(coupon.code)}`
+    }
+  });
+});
+
+/**
+ * PATCH /api/v1/admin/coupons/:id/special-offer
+ * Toggles or sets a coupon's special promotional offer status.
+ */
+export const updateCouponSpecialOffer = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { is_special_offer, special_offer } = req.body;
+
+  const coupon = await Coupon.findByPk(id);
+
+  if (!coupon) {
+    return next(new AppError('Coupon not found with the provided ID.', 404));
+  }
+
+  const targetVal = is_special_offer !== undefined ? is_special_offer : special_offer;
+  const newSpecialOffer = typeof targetVal === 'boolean' ? targetVal : !coupon.is_special_offer;
+
+  await coupon.update({ is_special_offer: newSpecialOffer });
+
+  res.status(200).json({
+    success: true,
+    message: `Coupon "${coupon.code}" ${newSpecialOffer ? 'marked as special promotional offer' : 'removed from special promotional offers'} successfully`,
+    data: {
+      id: coupon.id,
+      code: coupon.code,
+      is_special_offer: coupon.is_special_offer,
+      share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(coupon.code)}`
+    }
+  });
+});
+
+/**
+ * GET /api/v1/admin/coupons/special-offer
+ * Retrieves the currently active special promotional offer for AI chat upsell cards and marketing campaigns.
+ */
+export const getActiveSpecialOffer = asyncHandler(async (req, res) => {
+  const now = new Date();
+
+  const coupon = await Coupon.findOne({
+    where: {
+      is_special_offer: true,
+      is_active: true,
+      [Op.or]: [
+        { expires_at: null },
+        { expires_at: { [Op.gt]: now } }
+      ]
+    },
+    order: [['updated_at', 'DESC']]
+  });
+
+  if (!coupon) {
+    return res.status(200).json({
+      success: true,
+      message: 'No active special promotional offer currently configured',
+      data: {
+        special_offer: null
+      }
+    });
+  }
+
+  const raw = typeof coupon.toJSON === 'function' ? coupon.toJSON() : coupon;
+
+  res.status(200).json({
+    success: true,
+    message: 'Active special promotional offer retrieved successfully',
+    data: {
+      special_offer: {
+        id: raw.id,
+        code: raw.code,
+        title: 'Special Promotional Offer',
+        description: raw.description,
+        discount_type: raw.discount_type,
+        discount_value: Number(raw.discount_value),
+        applicable_products: raw.applicable_products,
+        is_active: raw.is_active,
+        is_special_offer: raw.is_special_offer,
+        expires_at: raw.expires_at,
+        share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(raw.code)}`
+      }
     }
   });
 });
@@ -176,7 +319,10 @@ export const updateCoupon = asyncHandler(async (req, res, next) => {
     applicable_products,
     expires_at,
     max_uses,
-    is_active
+    is_active,
+    is_hidden,
+    is_special_offer,
+    special_offer
   } = req.body;
 
   const coupon = await Coupon.findByPk(id);
@@ -211,7 +357,7 @@ export const updateCoupon = asyncHandler(async (req, res, next) => {
     updates.description = description.trim();
   }
 
-  const validTypes = ['pack_offer', 'percentage', 'flat'];
+  const validTypes = ['percentage', 'flat'];
   const effectiveType = discount_type !== undefined ? discount_type : coupon.discount_type;
 
   if (discount_type !== undefined) {
@@ -277,13 +423,31 @@ export const updateCoupon = asyncHandler(async (req, res, next) => {
     updates.is_active = is_active;
   }
 
+  if (is_hidden !== undefined) {
+    if (typeof is_hidden !== 'boolean') {
+      return next(new AppError('is_hidden must be a boolean value.', 400));
+    }
+    updates.is_hidden = is_hidden;
+  }
+
+  const specialOfferVal = is_special_offer !== undefined ? is_special_offer : special_offer;
+  if (specialOfferVal !== undefined) {
+    if (typeof specialOfferVal !== 'boolean') {
+      return next(new AppError('is_special_offer must be a boolean value.', 400));
+    }
+    updates.is_special_offer = specialOfferVal;
+  }
+
   await coupon.update(updates);
 
   res.status(200).json({
     success: true,
     message: 'Coupon updated successfully',
     data: {
-      coupon
+      coupon: {
+        ...(typeof coupon.toJSON === 'function' ? coupon.toJSON() : coupon),
+        share_url: `https://japaika.com/pricing?coupon=${encodeURIComponent(coupon.code)}`
+      }
     }
   });
 });

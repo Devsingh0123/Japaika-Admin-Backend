@@ -1,14 +1,15 @@
 import { Op } from 'sequelize';
-import { User, Order } from '../models/index.js';
+import { User, Order, ChatMessage } from '../models/index.js';
 import { sequelize } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
+const VALID_TOPICS = ['Career', 'Marriage', 'Love', 'Wealth', 'Health', 'General'];
+
 /**
- * GET /api/v1/admin/dashboard
- * Aggregates core KPI metric cards and 7-day revenue/orders chart telemetry.
+ * GET /api/v1/admin/dashboard/metrics
+ * Fast KPI summary cards (Users, Paid Orders, Revenue & Multi-Currency Breakdown).
  */
-export const getDashboardStats = asyncHandler(async (req, res) => {
-  // 1. Metric Cards Aggregations
+export const getDashboardMetrics = asyncHandler(async (req, res) => {
   const [
     totalUsers,
     totalPaidOrders,
@@ -30,15 +31,37 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     })
   ]);
 
-  const totalRevenue = Number(parseFloat(revenueResult || 0).toFixed(2));
+  res.status(200).json({
+    success: true,
+    message: 'Dashboard KPI metrics retrieved successfully',
+    data: {
+      metrics: {
+        totalUsers,
+        totalPaidOrders,
+        totalRevenue: Number(parseFloat(revenueResult || 0).toFixed(2)),
+        currency: 'INR',
+        revenueByCurrency: revenueByCurrency.map((r) => ({
+          currency: r.currency,
+          revenue: Number(parseFloat(r.revenue || 0).toFixed(2)),
+          count: parseInt(r.count, 10) || 0
+        }))
+      }
+    }
+  });
+});
 
-  // 2. 7-Day Range Calculation (inclusive of today)
+/**
+ * GET /api/v1/admin/dashboard/revenue-chart
+ * Daily revenue & order velocity time-series chart (default 7 days, configurable via ?days=7..90).
+ */
+export const getRevenueChart = asyncHandler(async (req, res) => {
+  const days = Math.min(90, Math.max(7, parseInt(req.query.days, 10) || 7));
+
   const now = new Date();
   const startDate = new Date();
-  startDate.setDate(now.getDate() - 6);
+  startDate.setDate(now.getDate() - (days - 1));
   startDate.setHours(0, 0, 0, 0);
 
-  // Group orders by date for the last 7 days
   const dailyStats = await Order.findAll({
     attributes: [
       [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
@@ -63,9 +86,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     raw: true
   });
 
-  // 3. Build a continuous 7-day series (ensuring days with zero transactions are included)
   const chartMap = new Map();
-  for (let i = 6; i >= 0; i--) {
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(now.getDate() - i);
     const dateKey = d.toISOString().split('T')[0];
@@ -92,24 +114,57 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     }
   });
 
-  const chartData = Array.from(chartMap.values());
+  res.status(200).json({
+    success: true,
+    message: 'Dashboard revenue chart retrieved successfully',
+    data: {
+      days,
+      chartData: Array.from(chartMap.values())
+    }
+  });
+});
+
+/**
+ * GET /api/v1/admin/dashboard/topics
+ * Aggregates user question counts and percentages by astrology topic from chat_messages.
+ */
+export const getQuestionTopicStats = asyncHandler(async (req, res) => {
+  const rows = await ChatMessage.findAll({
+    attributes: [
+      [sequelize.fn('COALESCE', sequelize.col('topic'), 'General'), 'topic'],
+      [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+    ],
+    where: { role: 'user' },
+    group: [sequelize.fn('COALESCE', sequelize.col('topic'), 'General')],
+    raw: true
+  });
+
+  const countsMap = new Map(VALID_TOPICS.map((t) => [t, 0]));
+
+  rows.forEach((r) => {
+    const matchedTopic =
+      VALID_TOPICS.find((t) => t.toLowerCase() === String(r.topic || 'General').toLowerCase()) ||
+      'General';
+    countsMap.set(matchedTopic, (countsMap.get(matchedTopic) || 0) + (parseInt(r.count, 10) || 0));
+  });
+
+  const totalQuestions = Array.from(countsMap.values()).reduce((sum, c) => sum + c, 0);
+
+  const topics = VALID_TOPICS.map((topic) => {
+    const count = countsMap.get(topic) || 0;
+    return {
+      topic,
+      count,
+      percentage: totalQuestions > 0 ? Number(((count / totalQuestions) * 100).toFixed(1)) : 0
+    };
+  }).sort((a, b) => b.count - a.count);
 
   res.status(200).json({
     success: true,
-    message: 'Dashboard metrics and telemetry retrieved successfully',
+    message: 'Question topic analytics retrieved successfully',
     data: {
-      metrics: {
-        totalUsers,
-        totalPaidOrders,
-        totalRevenue,
-        currency: 'INR',
-        revenueByCurrency: revenueByCurrency.map((r) => ({
-          currency: r.currency,
-          revenue: Number(parseFloat(r.revenue || 0).toFixed(2)),
-          count: parseInt(r.count, 10) || 0
-        }))
-      },
-      chartData
+      totalQuestions,
+      topics
     }
   });
 });

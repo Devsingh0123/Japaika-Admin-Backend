@@ -169,6 +169,7 @@ export const getChatThreadById = asyncHandler(async (req, res, next) => {
           'id',
           'role',
           'content',
+          'topic',
           'structured_data',
           'feedback',
           'tokens_used',

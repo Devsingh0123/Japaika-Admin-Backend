@@ -21,11 +21,11 @@ export const Coupon = sequelize.define('Coupon', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
-  // 'pack_offer' uses the pack's built-in offerPrice; 'percentage' or 'flat' apply custom discounts
+  // Discount type: 'percentage' (e.g., 20%) or 'flat' (e.g., ₹100 or $5 off)
   discount_type: {
-    type: DataTypes.ENUM('pack_offer', 'percentage', 'flat'),
+    type: DataTypes.ENUM('percentage', 'flat'),
     allowNull: false,
-    defaultValue: 'pack_offer'
+    defaultValue: 'percentage'
   },
   discount_value: {
     type: DataTypes.DECIMAL(10, 2),
@@ -42,6 +42,16 @@ export const Coupon = sequelize.define('Coupon', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: true
+  },
+  is_hidden: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  },
+  is_special_offer: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
   },
   expires_at: {
     type: DataTypes.DATE,
@@ -63,6 +73,8 @@ export const Coupon = sequelize.define('Coupon', {
   underscored: true,
   indexes: [
     { name: 'idx_coupons_code', unique: true, fields: ['code'] },
-    { name: 'idx_coupons_is_active', fields: ['is_active'] }
+    { name: 'idx_coupons_is_active', fields: ['is_active'] },
+    { name: 'idx_coupons_is_hidden', fields: ['is_hidden'] },
+    { name: 'idx_coupons_is_special_offer', fields: ['is_special_offer'] }
   ]
 });

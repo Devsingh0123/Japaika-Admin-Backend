@@ -28,6 +28,11 @@ export const ChatMessage = sequelize.define('ChatMessage', {
     type: DataTypes.TEXT,
     allowNull: false
   },
+  topic: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: null
+  },
   structured_data: {
     type: DataTypes.JSON,
     allowNull: true
@@ -54,6 +59,7 @@ export const ChatMessage = sequelize.define('ChatMessage', {
   underscored: true,
   indexes: [
     { fields: ['thread_id'] },
-    { fields: ['role'] }
+    { fields: ['role'] },
+    { name: 'idx_chat_messages_topic', fields: ['role', 'topic'] }
   ]
 });
