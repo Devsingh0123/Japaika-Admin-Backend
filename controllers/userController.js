@@ -162,13 +162,35 @@ export const updateUserStatus = asyncHandler(async (req, res, next) => {
  * Manually adjusts question credits (`credit_balance`) or report credits (`report_credits`) for a user.
  */
 export const adjustUserCredits = asyncHandler(async (req, res, next) => {
+  // Alias handling: allow direct `credit_balance`, `report_credits`, or `report_credit` field in request body
+  if (req.body.credit_type === undefined) {
+    if (req.body.report_credit !== undefined) {
+      req.body.credit_type = 'report_credits';
+      req.body.action = req.body.action || 'set';
+      req.body.amount = req.body.amount !== undefined ? req.body.amount : req.body.report_credit;
+    } else if (req.body.report_credits !== undefined) {
+      req.body.credit_type = 'report_credits';
+      req.body.action = req.body.action || 'set';
+      req.body.amount = req.body.amount !== undefined ? req.body.amount : req.body.report_credits;
+    } else if (req.body.credit_balance !== undefined) {
+      req.body.credit_type = 'credit_balance';
+      req.body.action = req.body.action || 'set';
+      req.body.amount = req.body.amount !== undefined ? req.body.amount : req.body.credit_balance;
+    }
+  }
+
   const { id } = req.params;
   const { credit_type = 'questions', action = 'add', amount, reason = '' } = req.body;
 
-  const validTypes = ['questions', 'reports', 'credit_balance', 'report_credits'];
+  const validTypes = ['questions', 'reports', 'credit_balance', 'report_credits', 'report_credit'];
   const normalizedType = credit_type?.toLowerCase();
   if (!normalizedType || !validTypes.includes(normalizedType)) {
-    return next(new AppError('Invalid credit_type. Must be "questions" or "reports".', 400));
+    return next(
+      new AppError(
+        'Invalid credit_type. Must be "questions", "reports", "credit_balance", or "report_credits".',
+        400
+      )
+    );
   }
 
   const validActions = ['add', 'deduct', 'credit', 'debit', 'set'];

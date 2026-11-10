@@ -102,7 +102,7 @@ export const getOrderById = asyncHandler(async (req, res, next) => {
       {
         model: User,
         as: 'user',
-        attributes: ['id', 'email', 'role', 'tier', 'credit_balance']
+        attributes: ['id', 'email', 'role', 'tier', 'credit_balance', 'report_credits']
       },
       {
         model: Invoice,
