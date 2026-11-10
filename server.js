@@ -26,23 +26,26 @@ const app = express();
 // Security HTTP headers
 app.use(helmet());
 
-// CORS configuration - allow admin frontend origin
-const allowedOrigins = [
-  process.env.ADMIN_FRONTEND_URL || 'http://localhost:5174',
-  'https://admin.japaika.com',
-  'http://localhost:5173'
-];
+// CORS Configuration - whitelist admin-frontend origin(s) only
+const allowedOrigins = (
+  process.env.ADMIN_FRONTEND_URL ||
+  'http://localhost:5174,https://admin.japaika.com,https://www.admin.japaika.com'
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g., mobile apps, curl, postman)
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true
-}));
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
